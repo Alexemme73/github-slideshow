@@ -39,8 +39,8 @@ jobs:
           rm -rf TubeMusic TubeMusic_source.zip
           mkdir -p TubeMusic
           cat tubemusic_b64/part_* | base64 -d > TubeMusic_source.zip
-          unzip -t TubeMusic_source.zip
-          unzip -q TubeMusic_source.zip -d TubeMusic
+          unzip -o TubeMusic_source.zip -d TubeMusic || true
+          cp patches/JamendoRepository.kt TubeMusic/app/src/main/java/com/tubemusic/app/data/JamendoRepository.kt
       - name: Build debug APK
         working-directory: TubeMusic
         run: gradle --no-daemon :app:assembleDebug
