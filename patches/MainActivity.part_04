@@ -1,22 +1,126 @@
-            IconButton(onClick = onPlayPause) { Icon(if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, modifier = Modifier.size(30.dp)) }
-            IconButton(onClick = onNext) { Icon(Icons.Default.SkipNext, null) }
+        }
+
+        if (eSoundPlaylists.isEmpty()) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Text(
+                        "In eSound apri una playlist pubblica → Condividi → Copia link, poi incollalo qui. Le playlist restano salvate e ordinabili sul telefono.",
+                        modifier = Modifier.padding(14.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        items(eSoundPlaylists, key = { it.id }) { playlist ->
+            val index = eSoundPlaylists.indexOfFirst { it.id == playlist.id }
+            Card(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onOpenESoundPlaylist(playlist) }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(Modifier.size(48.dp), shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.PlaylistPlay, null) }
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(playlist.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Playlist eSound", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    IconButton(onClick = { onMoveESound(index, -1) }, enabled = index > 0) { Icon(Icons.Default.KeyboardArrowUp, "Sposta su") }
+                    IconButton(onClick = { onMoveESound(index, 1) }, enabled = index >= 0 && index < eSoundPlaylists.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, "Sposta giù") }
+                    IconButton(onClick = { onRemoveESound(playlist.id) }) { Icon(Icons.Default.DeleteOutline, "Elimina") }
+                }
+            }
+        }
+
+        item {
+            SectionTitle("Preferiti TubeMusic", horizontalPadding = 0.dp)
+        }
+        if (favorites.isEmpty()) {
+            item { Text("I brani che aggiungi con il cuore compariranno qui. Le radio non vengono inserite in questa sezione.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        items(favorites, key = { it.id }) { t ->
+            TrackRow(t, onClick = { onPlay(favorites, favorites.indexOf(t)) }, onFavorite = {}, favorite = true)
         }
     }
 }
 
-private fun playQueue(controller: MediaController?, tracks: List<Track>, index: Int) {
-    if (controller == null || tracks.isEmpty()) return
-    controller.setMediaItems(tracks.map(Track::toMediaItem), index.coerceIn(tracks.indices), 0L)
-    controller.prepare()
-    controller.play()
+@Composable
+private fun TrackCarousel(
+    tracks: List<Track>,
+    onPlay: (List<Track>, Int) -> Unit,
+    onFavorite: (Track) -> Unit,
+    isFavorite: (Track) -> Boolean
+) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(tracks) { t ->
+            val index = tracks.indexOf(t)
+            Column(Modifier.width(150.dp)) {
+                Box {
+                    AsyncImage(model = t.imageUrl, contentDescription = t.title, modifier = Modifier.size(150.dp).clip(RoundedCornerShape(12.dp)).clickable { onPlay(tracks, index) }, contentScale = ContentScale.Crop)
+                    IconButton(onClick = { onFavorite(t) }, modifier = Modifier.align(Alignment.TopEnd).background(Color.Black.copy(alpha = .45f), CircleShape)) {
+                        Icon(if (isFavorite(t)) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null, tint = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(7.dp))
+                Text(t.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                Text(t.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            }
+        }
+    }
 }
 
-private fun playRadio(controller: MediaController?, station: RadioStation) {
-    if (controller == null) return
-    controller.setMediaItem(station.toMediaItem())
-    controller.prepare()
-    controller.play()
+@Composable
+private fun TrackRow(track: Track, onClick: () -> Unit, onFavorite: () -> Unit, favorite: Boolean) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        AsyncImage(model = track.imageUrl, contentDescription = null, modifier = Modifier.size(58.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+            Text(listOf(track.artist, track.releaseDate.take(4)).filter { it.isNotBlank() }.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, fontSize = 12.sp)
+        }
+        IconButton(onClick = onFavorite) { Icon(if (favorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder, null) }
+    }
 }
 
-private fun toggleFavorite(favorites: List<Track>, track: Track): List<Track> =
-    if (favorites.any { it.id == track.id }) favorites.filterNot { it.id == track.id } else favorites + track
+@Composable
+private fun SearchBarBlock(query: String, onQueryChange: (String) -> Unit, onSearch: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            placeholder = { Text("Brano, artista, genere…") },
+            leadingIcon = { Icon(Icons.Default.Search, null) }
+        )
+        Spacer(Modifier.width(8.dp))
+        FilledIconButton(onClick = onSearch) { Icon(Icons.Default.ArrowForward, "Cerca") }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp) {
+    Text(text, modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 14.dp), fontSize = 21.sp, fontWeight = FontWeight.Black)
+}
+
+private data class PlayerUiState(
+    val title: String = "",
+    val artist: String = "",
+    val art: Uri? = null,
+    val isPlaying: Boolean = false
+)
+
+@Composable
+private fun rememberPlayerUiState(controller: MediaController?): PlayerUiState {
+    var state by remember(controller) { mutableStateOf(PlayerUiState()) }
+    DisposableEffect(controller) {
+        if (controller == null) return@DisposableEffect onDispose { }
+        fun sync() {
+            val md = controller.currentMediaItem?.mediaMetadata
+            state = PlayerUiState(
+                md?.title?.toString().orEmpty(),
+                md?.artist?.toString().orEmpty(),
+                md?.artworkUri,
