@@ -33,7 +33,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
-      - name: Rebuild and unpack TubeMusic
+      - name: Rebuild and patch TubeMusic
         shell: bash
         run: |
           rm -rf TubeMusic TubeMusic_source.zip
@@ -41,6 +41,7 @@ jobs:
           cat tubemusic_b64/part_* | base64 -d > TubeMusic_source.zip
           unzip -o TubeMusic_source.zip -d TubeMusic || true
           cp patches/JamendoRepository.kt TubeMusic/app/src/main/java/com/tubemusic/app/data/JamendoRepository.kt
+          cp patches/app-build.gradle.kts TubeMusic/app/build.gradle.kts
       - name: Build debug APK
         working-directory: TubeMusic
         run: gradle --no-daemon :app:assembleDebug
