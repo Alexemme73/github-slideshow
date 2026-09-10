@@ -2,6 +2,7 @@ package com.tubemusic.app
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,8 +39,10 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import coil3.compose.AsyncImage
 import com.google.common.util.concurrent.ListenableFuture
+import com.tubemusic.app.data.ESoundPlaylistStore
 import com.tubemusic.app.data.JamendoRepository
 import com.tubemusic.app.data.RadioBrowserRepository
+import com.tubemusic.app.model.ESoundPlaylist
 import com.tubemusic.app.model.RadioStation
 import com.tubemusic.app.model.Track
 import com.tubemusic.app.playback.PlaybackService
@@ -87,13 +91,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab { Home, Explore, Radio, Library }
+private enum class Tab { Home, Explore, Playlists, Radio }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TubeMusicApp(controller: MediaController?) {
+    val context = LocalContext.current
     val jamendo = remember { JamendoRepository() }
     val radioRepository = remember { RadioBrowserRepository() }
+    val eSoundStore = remember { ESoundPlaylistStore(context.applicationContext) }
     val scope = rememberCoroutineScope()
 
     var tab by remember { mutableStateOf(Tab.Home) }
@@ -105,6 +111,7 @@ private fun TubeMusicApp(controller: MediaController?) {
     var query by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<Track>>(emptyList()) }
     var favorites by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var eSoundPlaylists by remember { mutableStateOf(eSoundStore.load()) }
 
     var radios by remember { mutableStateOf<List<RadioStation>>(emptyList()) }
     var radioLoading by remember { mutableStateOf(true) }
@@ -148,22 +155,9 @@ private fun TubeMusicApp(controller: MediaController?) {
             CenterAlignedTopAppBar(
                 title = { Text("TubeMusic", fontWeight = FontWeight.Black, letterSpacing = 0.3.sp) },
                 actions = {
-                    if (tab != Tab.Radio) {
+                    if (tab == Tab.Home || tab == Tab.Explore) {
                         IconButton(onClick = { searchOpen = !searchOpen }) { Icon(Icons.Default.Search, "Cerca") }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
-        },
-        bottomBar = {
-            Column {
-                AnimatedVisibility(visible = playerUi.title.isNotBlank()) {
-                    MiniPlayer(
-                        state = playerUi,
-                        onPlayPause = { if (controller?.isPlaying == true) controller.pause() else controller?.play() },
-                        onPrevious = { controller?.seekToPreviousMediaItem() },
-                        onNext = { controller?.seekToNextMediaItem() }
-                    )
-                }
-                NavigationBar(containerColor = Color(0xFF111114)) {
-                    NavigationBarItem(selected = tab == Tab.Home, onClick = { tab = Tab.Home }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Home") })
