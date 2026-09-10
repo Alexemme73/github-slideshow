@@ -1,12 +1,25 @@
+        },
+        bottomBar = {
+            Column {
+                AnimatedVisibility(visible = playerUi.title.isNotBlank()) {
+                    MiniPlayer(
+                        state = playerUi,
+                        onPlayPause = { if (controller?.isPlaying == true) controller.pause() else controller?.play() },
+                        onPrevious = { controller?.seekToPreviousMediaItem() },
+                        onNext = { controller?.seekToNextMediaItem() }
+                    )
+                }
+                NavigationBar(containerColor = Color(0xFF111114)) {
+                    NavigationBarItem(selected = tab == Tab.Home, onClick = { tab = Tab.Home }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Musica") })
                     NavigationBarItem(selected = tab == Tab.Explore, onClick = { tab = Tab.Explore }, icon = { Icon(Icons.Default.Explore, null) }, label = { Text("Esplora") })
+                    NavigationBarItem(selected = tab == Tab.Playlists, onClick = { tab = Tab.Playlists; searchOpen = false }, icon = { Icon(Icons.Default.PlaylistPlay, null) }, label = { Text("Playlist") })
                     NavigationBarItem(selected = tab == Tab.Radio, onClick = { tab = Tab.Radio; searchOpen = false }, icon = { Icon(Icons.Default.Radio, null) }, label = { Text("Radio") })
-                    NavigationBarItem(selected = tab == Tab.Library, onClick = { tab = Tab.Library }, icon = { Icon(Icons.Default.LibraryMusic, null) }, label = { Text("Libreria") })
                 }
             }
         }
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            AnimatedVisibility(searchOpen && tab != Tab.Radio) {
+            AnimatedVisibility(searchOpen && (tab == Tab.Home || tab == Tab.Explore)) {
                 SearchBarBlock(
                     query = query,
                     onQueryChange = { query = it },
@@ -50,8 +63,7 @@
                             catch (t: Throwable) { error = t.message }
                             finally { loading = false }
                         }
-                    },
-                    onOpenRadio = { tab = Tab.Radio }
+                    }
                 )
 
                 Tab.Explore -> ExploreScreen(
@@ -99,53 +111,13 @@
                     }
                 )
 
-                Tab.Library -> LibraryScreen(
+                Tab.Playlists -> PlaylistScreen(
                     favorites = favorites,
-                    onPlay = { list, index -> playQueue(controller, list, index) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeScreen(
-    topTracks: List<Track>, newTracks: List<Track>, loading: Boolean,
-    onPlay: (List<Track>, Int) -> Unit,
-    onFavorite: (Track) -> Unit,
-    isFavorite: (Track) -> Boolean,
-    onGenre: (String) -> Unit,
-    onYear: (Int) -> Unit,
-    onOpenRadio: () -> Unit
-) {
-    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
-        item {
-            HeroHeader(onOpenRadio)
-            SourceInfoCard()
-            SectionTitle("Generi")
-            GenreRow(onGenre)
-            SectionTitle("Per anno")
-            YearRow(onYear)
-        }
-        if (loading && topTracks.isEmpty()) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-        item {
-            SectionTitle("Più ascoltate · musica gratuita")
-            TrackCarousel(topTracks, onPlay, onFavorite, isFavorite)
-            SectionTitle("Novità · artisti indipendenti")
-            TrackCarousel(newTracks, onPlay, onFavorite, isFavorite)
-        }
-    }
-}
-
-@Composable
-private fun HeroHeader(onOpenRadio: () -> Unit) {
-    Box(
-        Modifier.padding(16.dp).fillMaxWidth().height(170.dp).clip(RoundedCornerShape(24.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF3A1020), Color(0xFF201531), Color(0xFF111114))))
-    ) {
-        Column(Modifier.align(Alignment.CenterStart).padding(20.dp)) {
-            Text("Musica libera + radio italiane", fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(6.dp))
-            Text("Streaming musicale gratuito e radio online in un unico player.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            FilledTonalButton(onClick = onOpenRadio) {
+                    eSoundPlaylists = eSoundPlaylists,
+                    onPlay = { list, index -> playQueue(controller, list, index) },
+                    onAddESound = { name, url ->
+                        runCatching { eSoundStore.add(eSoundPlaylists, name, url) }
+                            .onSuccess { eSoundPlaylists = it }
+                            .onFailure { error = it.message ?: "Link eSound non valido" }
+                    },
+                    onRemoveESound = { id -> eSoundPlaylists = eSoundStore.remove(eSoundPlaylists, id) },
