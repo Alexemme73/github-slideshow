@@ -11,8 +11,8 @@ android {
         applicationId = "com.tubemusic.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.5"
+        versionCode = 4
+        versionName = "0.6"
     }
 
     buildFeatures {
@@ -45,45 +45,4 @@ dependencies {
 
     implementation("io.coil-kt.coil3:coil-compose:3.4.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.4.0")
-}
-
-val applyRuntimeSourceFixes by tasks.registering {
-    doLast {
-        val manifest = file("src/main/AndroidManifest.xml")
-        if (manifest.exists()) {
-            var text = manifest.readText()
-            if (!text.contains("usesCleartextTraffic")) {
-                text = text.replace(
-                    "android:allowBackup=\"true\"",
-                    "android:allowBackup=\"true\"\n        android:usesCleartextTraffic=\"true\""
-                )
-                manifest.writeText(text)
-            }
-        }
-
-        val radioRepo = file("src/main/java/com/tubemusic/app/data/RadioBrowserRepository.kt")
-        if (radioRepo.exists()) {
-            var text = radioRepo.readText()
-            text = text.replace(
-                "if (!stream.startsWith(\"http://\") && !stream.startsWith(\"https://\")) continue",
-                "if (!stream.startsWith(\"https://\")) continue"
-            )
-            text = text.replace("TubeMusic/0.4", "TubeMusic/0.5")
-            radioRepo.writeText(text)
-        }
-
-        val service = file("src/main/java/com/tubemusic/app/playback/PlaybackService.kt")
-        if (service.exists()) {
-            var text = service.readText()
-            text = text.replace(
-                "val exo = ExoPlayer.Builder(this)\n            .setAudioAttributes(AudioAttributes.DEFAULT, true)",
-                "val audioAttributes = AudioAttributes.Builder()\n            .setUsage(C.USAGE_MEDIA)\n            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)\n            .build()\n        val exo = ExoPlayer.Builder(this)\n            .setAudioAttributes(audioAttributes, true)"
-            )
-            service.writeText(text)
-        }
-    }
-}
-
-tasks.named("preBuild") {
-    dependsOn(applyRuntimeSourceFixes)
 }
