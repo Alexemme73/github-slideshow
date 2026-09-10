@@ -1,0 +1,169 @@
+package com.tubemusic.app
+
+import android.Manifest
+import android.content.ComponentName
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import coil3.compose.AsyncImage
+import com.google.common.util.concurrent.ListenableFuture
+import com.tubemusic.app.data.JamendoRepository
+import com.tubemusic.app.data.RadioBrowserRepository
+import com.tubemusic.app.model.RadioStation
+import com.tubemusic.app.model.Track
+import com.tubemusic.app.playback.PlaybackService
+import com.tubemusic.app.ui.TubeMusicTheme
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.time.Year
+import java.util.Date
+
+class MainActivity : ComponentActivity() {
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var controllerState = mutableStateOf<MediaController?>(null)
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestNotificationPermissionIfNeeded()
+        setContent {
+            TubeMusicTheme {
+                TubeMusicApp(controller = controllerState.value)
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(this, token).buildAsync().also { future ->
+            future.addListener({
+                try { controllerState.value = future.get() } catch (_: Exception) { controllerState.value = null }
+            }, ContextCompat.getMainExecutor(this))
+        }
+    }
+
+    override fun onStop() {
+        controllerFuture?.let(MediaController::releaseFuture)
+        controllerFuture = null
+        controllerState.value = null
+        super.onStop()
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 12)
+        }
+    }
+}
+
+private enum class Tab { Home, Explore, Radio, Library }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TubeMusicApp(controller: MediaController?) {
+    val jamendo = remember { JamendoRepository() }
+    val radioRepository = remember { RadioBrowserRepository() }
+    val scope = rememberCoroutineScope()
+
+    var tab by remember { mutableStateOf(Tab.Home) }
+    var topTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var newTracks by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<Track>>(emptyList()) }
+    var favorites by remember { mutableStateOf<List<Track>>(emptyList()) }
+
+    var radios by remember { mutableStateOf<List<RadioStation>>(emptyList()) }
+    var radioLoading by remember { mutableStateOf(true) }
+    var radioError by remember { mutableStateOf<String?>(null) }
+    var radioFilter by remember { mutableStateOf("Tutte") }
+    var radioQuery by remember { mutableStateOf("") }
+    var lastRadioRefresh by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        try {
+            topTracks = jamendo.top()
+            newTracks = jamendo.newReleases()
+        } catch (t: Throwable) {
+            error = t.message ?: "Errore di rete"
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            radioLoading = true
+            try {
+                radios = radioRepository.italianStations()
+                radioError = null
+                lastRadioRefresh = System.currentTimeMillis()
+            } catch (t: Throwable) {
+                radioError = t.message ?: "Radio non disponibili"
+            } finally {
+                radioLoading = false
+            }
+            delay(30 * 60 * 1000L)
+        }
+    }
+
+    val playerUi = rememberPlayerUiState(controller)
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("TubeMusic", fontWeight = FontWeight.Black, letterSpacing = 0.3.sp) },
+                actions = {
+                    if (tab != Tab.Radio) {
+                        IconButton(onClick = { searchOpen = !searchOpen }) { Icon(Icons.Default.Search, "Cerca") }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+            )
+        },
+        bottomBar = {
+            Column {
+                AnimatedVisibility(visible = playerUi.title.isNotBlank()) {
+                    MiniPlayer(
+                        state = playerUi,
+                        onPlayPause = { if (controller?.isPlaying == true) controller.pause() else controller?.play() },
+                        onPrevious = { controller?.seekToPreviousMediaItem() },
+                        onNext = { controller?.seekToNextMediaItem() }
+                    )
+                }
+                NavigationBar(containerColor = Color(0xFF111114)) {
+                    NavigationBarItem(selected = tab == Tab.Home, onClick = { tab = Tab.Home }, icon = { Icon(Icons.Default.Home, null) }, label = { Text("Home") })
