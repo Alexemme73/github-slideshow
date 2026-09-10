@@ -1,0 +1,52 @@
+                controller.isPlaying
+            )
+        }
+        val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) = sync()
+        }
+        controller.addListener(listener)
+        sync()
+        onDispose { controller.removeListener(listener) }
+    }
+    return state
+}
+
+@Composable
+private fun MiniPlayer(state: PlayerUiState, onPlayPause: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit) {
+    Surface(color = Color(0xFF1C1C20), tonalElevation = 4.dp) {
+        Row(Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (state.art != null) {
+                AsyncImage(model = state.art, contentDescription = null, modifier = Modifier.size(54.dp).clip(RoundedCornerShape(8.dp)), contentScale = ContentScale.Crop)
+            } else {
+                Surface(Modifier.size(54.dp), shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.MusicNote, null) }
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                Text(state.artist, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onPrevious) { Icon(Icons.Default.SkipPrevious, null) }
+            IconButton(onClick = onPlayPause) { Icon(if (state.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow, null, modifier = Modifier.size(30.dp)) }
+            IconButton(onClick = onNext) { Icon(Icons.Default.SkipNext, null) }
+        }
+    }
+}
+
+private fun playQueue(controller: MediaController?, tracks: List<Track>, index: Int) {
+    if (controller == null || tracks.isEmpty()) return
+    controller.setMediaItems(tracks.map(Track::toMediaItem), index.coerceIn(tracks.indices), 0L)
+    controller.prepare()
+    controller.play()
+}
+
+private fun playRadio(controller: MediaController?, station: RadioStation) {
+    if (controller == null) return
+    controller.setMediaItem(station.toMediaItem())
+    controller.prepare()
+    controller.play()
+}
+
+private fun toggleFavorite(favorites: List<Track>, track: Track): List<Track> =
+    if (favorites.any { it.id == track.id }) favorites.filterNot { it.id == track.id } else favorites + track
