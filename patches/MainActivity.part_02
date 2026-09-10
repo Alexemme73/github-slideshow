@@ -1,0 +1,157 @@
+                Icon(Icons.Default.Radio, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Apri Radio Italia")
+            }
+        }
+    }
+}
+
+@Composable
+private fun SourceInfoCard() {
+    Card(Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Sorgenti gratuite", fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text("Musica: catalogo Jamendo · Radio: flussi pubblici indicizzati da Radio Browser", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun GenreRow(onGenre: (String) -> Unit) {
+    val genres = listOf("pop", "rock", "electronic", "hiphop", "jazz", "classical", "metal", "relaxation", "world", "soundtrack")
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(genres) { g -> AssistChip(onClick = { onGenre(g) }, label = { Text(g.replaceFirstChar { it.uppercase() }) }) }
+    }
+}
+
+@Composable
+private fun YearRow(onYear: (Int) -> Unit) {
+    val current = remember { Year.now().value }
+    val years = remember { (current downTo 2005).toList() }
+    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(years) { y -> FilterChip(selected = false, onClick = { onYear(y) }, label = { Text(y.toString()) }) }
+    }
+}
+
+@Composable
+private fun ExploreScreen(
+    tracks: List<Track>, loading: Boolean,
+    onPlay: (List<Track>, Int) -> Unit,
+    onGenre: (String) -> Unit,
+    onFavorite: (Track) -> Unit,
+    isFavorite: (Track) -> Boolean
+) {
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        item { SectionTitle("Esplora musica gratuita"); GenreRow(onGenre) }
+        if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        items(tracks) { track ->
+            val index = tracks.indexOf(track)
+            TrackRow(track, onClick = { onPlay(tracks, index) }, onFavorite = { onFavorite(track) }, favorite = isFavorite(track))
+        }
+    }
+}
+
+@Composable
+private fun RadioScreen(
+    stations: List<RadioStation>,
+    loading: Boolean,
+    error: String?,
+    filter: String,
+    query: String,
+    lastRefresh: Long,
+    onFilterChange: (String) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onPlay: (RadioStation) -> Unit
+) {
+    val filters = listOf("Tutte", "Pop", "Rock", "News", "Talk", "Dance", "Jazz", "Classica")
+    val filtered = remember(stations, filter, query) {
+        stations.filter { station ->
+            val text = (station.name + " " + station.tags + " " + station.state).lowercase()
+            val qOk = query.isBlank() || text.contains(query.trim().lowercase())
+            val fOk = when (filter) {
+                "Tutte" -> true
+                "Classica" -> text.contains("classical") || text.contains("classica")
+                else -> text.contains(filter.lowercase())
+            }
+            qOk && fOk
+        }
+    }
+
+    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Radio Italia", fontSize = 28.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        if (lastRefresh > 0L) "Lista aggiornata alle ${DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(lastRefresh))}"
+                        else "Aggiornamento lista in corso…",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                }
+                FilledTonalIconButton(onClick = onRefresh, enabled = !loading) {
+                    Icon(Icons.Default.Refresh, "Aggiorna")
+                }
+            }
+
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                singleLine = true,
+                placeholder = { Text("Cerca radio, città o genere…") },
+                leadingIcon = { Icon(Icons.Default.Search, null) }
+            )
+
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(filters) { f ->
+                    FilterChip(selected = filter == f, onClick = { onFilterChange(f) }, label = { Text(f) })
+                }
+            }
+
+            Text(
+                "Le stazioni sono recuperate online e la lista si aggiorna automaticamente ogni 30 minuti. I flussi segnalati come non funzionanti vengono esclusi.",
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (loading && stations.isEmpty()) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+        error?.let { message -> item { Text(message, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) } }
+        if (!loading && filtered.isEmpty()) item { Text("Nessuna radio trovata con questi filtri.", Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+
+        items(filtered, key = { it.id }) { station ->
+            RadioRow(station = station, onClick = { onPlay(station) })
+        }
+    }
+}
+
+@Composable
+private fun RadioRow(station: RadioStation, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (station.imageUrl.isNotBlank()) {
+            AsyncImage(
+                model = station.imageUrl,
+                contentDescription = null,
+                modifier = Modifier.size(58.dp).clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Surface(Modifier.size(58.dp), shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Radio, null) }
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(station.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+            val details = buildList {
+                if (station.state.isNotBlank()) add(station.state)
+                if (station.codec.isNotBlank()) add(station.codec)
+                if (station.bitrate > 0) add("${station.bitrate} kbps")
+            }.joinToString(" · ")
