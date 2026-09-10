@@ -33,10 +33,13 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.6.0'
-      - name: Unpack TubeMusic
+      - name: Rebuild and unpack TubeMusic
+        shell: bash
         run: |
-          rm -rf TubeMusic
+          rm -rf TubeMusic TubeMusic_source.zip
           mkdir -p TubeMusic
+          cat tubemusic_b64/part_* | base64 -d > TubeMusic_source.zip
+          unzip -t TubeMusic_source.zip
           unzip -q TubeMusic_source.zip -d TubeMusic
       - name: Build debug APK
         working-directory: TubeMusic
