@@ -11,8 +11,8 @@ android {
         applicationId = "com.tubemusic.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.3"
+        versionCode = 2
+        versionName = "0.4"
     }
 
     buildFeatures {
@@ -45,6 +45,4 @@ dependencies {
 
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
-
-    implementation("com.google.android.gms:play-services-auth:21.6.0")
 }
