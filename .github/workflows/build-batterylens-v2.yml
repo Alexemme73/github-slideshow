@@ -1,6 +1,11 @@
 name: Build BatteryLens Android v2
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - "BatteryLensAndroidClient_v2_source.b64"
+      - ".github/workflows/build-batterylens-v2.yml"
   pull_request:
     branches: [ main ]
     paths:
