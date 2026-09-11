@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#07111D">
+
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"/>
+
+    <LinearLayout
+        android:id="@+id/connectPanel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="28dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="BatteryLens"
+            android:textStyle="bold"
+            android:textSize="30sp"
+            android:textColor="#FFFFFF"
+            android:layout_marginBottom="14dp"/>
+
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminate="true"
+            android:layout_marginBottom="14dp"/>
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ricerca automatica del server…"
+            android:textColor="#D5E3EF"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:layout_marginBottom="20dp"/>
+
+        <Button
+            android:id="@+id/retryButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Riprova ricerca automatica"
+            android:visibility="gone"/>
+
+        <Button
+            android:id="@+id/manualButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Connessione manuale"
+            android:visibility="gone"
+            android:layout_marginTop="8dp"/>
+
+    </LinearLayout>
+</FrameLayout>
