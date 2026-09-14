@@ -1,0 +1,27 @@
+name: Export Apktool for BlinkViewer 55.6
+
+on:
+  push:
+    branches: [ "blinkviewer-build-56" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Apktool 3.0.3
+        shell: bash
+        run: |
+          curl -L --fail --retry 3 -o apktool.jar https://repo1.maven.org/maven2/org/apktool/apktool-cli/3.0.3/apktool-cli-3.0.3-all.jar || curl -L --fail --retry 3 -o apktool.jar https://repo1.maven.org/maven2/org/apktool/apktool-cli/3.0.3/apktool-cli-3.0.3.jar
+          java -jar apktool.jar --version
+      - name: Upload Apktool
+        uses: actions/upload-artifact@v4
+        with:
+          name: apktool-3.0.3
+          path: apktool.jar
+          if-no-files-found: error
+          retention-days: 1
