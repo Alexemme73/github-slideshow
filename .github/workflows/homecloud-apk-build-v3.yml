@@ -1,0 +1,55 @@
+name: HomeCloud APK Build v3
+
+on:
+  push:
+    branches:
+      - homecloud-apk-v1-1-0-build
+    paths:
+      - .github/workflows/homecloud-apk-build-v3.yml
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore verified Android source
+        shell: bash
+        run: |
+          cat homecloud-build/chunk0.b64 homecloud-build/chunk1.b64 homecloud-build/chunk2.b64 homecloud-build/chunk3.b64 homecloud-build/chunk4.b64 > /tmp/homecloud.b64
+          base64 -d /tmp/homecloud.b64 > /tmp/homecloud.zip
+          ACTUAL="$(sha256sum /tmp/homecloud.zip | awk '{print $1}')"
+          echo "SHA-256: $ACTUAL"
+          test "$ACTUAL" = "965003330f8cde92eb3775b6e4d260975b3f0c707ed0e29905a18a1d25a186f9"
+          mkdir -p homecloud-src
+          unzip -q /tmp/homecloud.zip -d homecloud-src
+          sed -i 's/import android.content.ContentObserver;/import android.database.ContentObserver;/' homecloud-src/android/app/src/main/java/com/homecloud/backup/MainActivity.java
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.1'
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          cd homecloud-src/android
+          gradle --no-daemon clean assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/HomeCloudBackup-v1.1.0-debug.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HomeCloudBackup-v1.1.0-debug
+          path: HomeCloudBackup-v1.1.0-debug.apk
+          if-no-files-found: error
+          retention-days: 1
