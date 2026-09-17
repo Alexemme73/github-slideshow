@@ -25,8 +25,11 @@ jobs:
       - name: Restore Android source
         shell: bash
         run: |
+          cat homecloud-build/chunk0.b64 homecloud-build/chunk1.b64 homecloud-build/chunk2.b64 homecloud-build/chunk3.b64 homecloud-build/chunk4.b64 > /tmp/homecloud.b64
+          base64 -d /tmp/homecloud.b64 > /tmp/homecloud.zip
+          echo "Sorgente ricomposto: $(sha256sum /tmp/homecloud.zip | awk '{print $1}')"
+          test "$(sha256sum /tmp/homecloud.zip | awk '{print $1}')" = "965003330f8cde92eb3775b6e4d260975b3f0c707ed0e29905a18a1d25a186f9"
           mkdir -p homecloud-src
-          base64 -d homecloud-build/HomeCloudBackup_Android_Source_v1.1.0.b64 > /tmp/homecloud.zip
           unzip -q /tmp/homecloud.zip -d homecloud-src
 
       - name: Set up Gradle
